@@ -4,3 +4,4 @@ dags/__pycache__/
 airflow.cfg
 .env
 docker-compose.override.yml
+dags/weather_api_project/__pycache__/
