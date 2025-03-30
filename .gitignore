@@ -1,0 +1,6 @@
+logs/
+plugins/
+dags/__pycache__/
+airflow.cfg
+.env
+docker-compose.override.yml
