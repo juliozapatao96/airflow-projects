@@ -8,6 +8,8 @@ from airflow.operators.python import PythonOperator
 import pandas as pd
 import os
 
+from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+
 
 project_folder = "/opt/airflow/output/weather_api_project"
 os.makedirs(project_folder, exist_ok=True)
@@ -64,6 +66,26 @@ def transform_load_data(task_instance):
     #filename = f"/opt/airflow/output/weather_api_project/current_weather_data_portland_{now}.csv"
     df_data.to_csv(filename, index=False)
 
+    # Compartir el nombre del archivo con la siguiente tarea
+    task_instance.xcom_push(key="filename", value=filename)
+
+
+def upload_to_s3(task_instance):
+    s3_hook = S3Hook(aws_conn_id='aws_default')
+
+    # Recupera el path exacto del archivo desde XCom
+    file_path = task_instance.xcom_pull(task_ids="transform_load_weather_data", key="filename")
+
+    file_name = os.path.basename(file_path)
+
+    s3_hook.load_file(
+        filename=file_path,
+        key=f"weather-data/{file_name}",
+        bucket_name='s3-jz-weather',
+        replace=True
+    )
+
+
 
 default_args = {
     'owner':'airflow',
@@ -101,9 +123,12 @@ with DAG('weather_dag',
             python_callable=transform_load_data
         )
 
+        upload_to_s3_task = PythonOperator(
+            task_id='upload_to_s3',
+            python_callable=upload_to_s3
+        )
 
-
-        is_weather_api_ready >> extract_weather_data >> transform_load_weather_data
+        is_weather_api_ready >> extract_weather_data >> transform_load_weather_data >> upload_to_s3_task
 
 
 
